@@ -112,6 +112,23 @@ netem_pod() {
     compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $pod.$cluster-nodes -uroot -proot_password" "-3rd"
 }
 
+recreate() {
+    # delete cluster
+    kubectl delete \
+        -f $conf_dir/$cluster.yml
+    wait_for_delete pod/$cluster-node-2
+    wait_for_delete pod/$cluster-node-1
+    wait_for_delete pod/$cluster-node-0
+
+    # recreate cluster
+    kubectl apply \
+        -f $conf_dir/$cluster.yml
+
+    wait_for_running $cluster-node 3
+    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-0.$cluster-nodes -uroot -proot_password"
+    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-1.$cluster-nodes -uroot -proot_password"
+    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-2.$cluster-nodes -uroot -proot_password"
+}
 
 main() {
     create_namespace $namespace
@@ -119,6 +136,9 @@ main() {
 
     desc 'start cluster'
     setup_cluster
+
+    desc 'recreate cluster'
+    recreate
 
     desc 'kill node-0 pod'
     pumba_pod kill "$cluster-node-0"
